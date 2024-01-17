@@ -7,15 +7,16 @@ class RUL_loss(torch.nn.Module):
     And stack stats exchange post :https://stats.stackexchange.com/questions/554282/how-to-train-a-neural-network-to-minimize-two-loss-functions
     '''
 
-    def __innit__(self):
+    def __innit__(self, theta):
         super().__innit__()
+        self.theta = theta
     
-    def forward(self, predicted, true, theta):
+    def forward(self, predicted, true):
         
         diff = predicted - true
         loss_scoring = self.scoring(diff)
         loss_RMSE = self.RMSE(diff)
-        loss = theta*loss_scoring + (1-theta)*loss_RMSE # see https://stats.stackexchange.com/questions/554282 
+        loss = self.theta*loss_scoring + (1-self.theta)*loss_RMSE # see https://stats.stackexchange.com/questions/554282 
         return loss
 
 
@@ -23,6 +24,7 @@ class RUL_loss(torch.nn.Module):
     def RMSE(self, diff):
         loss_RMSE = torch.sqrt(torch.mean(diff**2))
         return loss_RMSE
+    
     def scoring(self, diff):
         loss_scoring = sum(
             torch.exp(-diff[i]/13) -1 for i in range(len(diff))

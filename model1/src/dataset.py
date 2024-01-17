@@ -57,7 +57,7 @@ class RUL_Dataset(Dataset):
 
         label = torch.as_tensor(np.array([[self.series_t[i][-1, start_points[i]+sequence_lenght ]] for i in existence]))
         # List of all series features
-        features = torch.as_tensor(np.array([self.series_t[i][:-1, start_points[i] : start_points[i]+sequence_lenght]  for i in existence ]))
+        features = torch.as_tensor(np.array([self.series_t[i][:-1, start_points[i] : start_points[i]+sequence_lenght]  for i in existence]))
 
         return features, label
     
