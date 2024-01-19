@@ -8,6 +8,9 @@ __pycache__/
 **/Configs
 **/saved_models
 
+# .ipynb extensions
+*.ipynb
+
 # C extensions
 *.so
 

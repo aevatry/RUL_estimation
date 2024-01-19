@@ -8,7 +8,7 @@ def main():
     K2 = 20
     S2 = 5
     K3 = 10
-    bins = [100, 50, 30]
+    bins = [300]
     F4 = 64
 
     # Maximum Bin size
