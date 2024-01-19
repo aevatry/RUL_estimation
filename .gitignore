@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Ignore parameter folders and others
+**/runs
+**/Configs
+**/saved_models
+
 # C extensions
 *.so
 
