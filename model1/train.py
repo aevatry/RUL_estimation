@@ -53,7 +53,7 @@ def train_net(config, device):
     model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
 
     # load the parameters of the model and put it on the gpu if available
-    model = load_pmodel(model_path, config)
+    model = load_pmodel(config)
     model = model.to(device)
 
     print('Model bins: ',model.pyramid_pool_bins, '\nAnd model mode: ', model._pooling_mode)
@@ -132,8 +132,9 @@ def train_net(config, device):
 
 
 
-def load_pmodel(model_path, config):
+def load_pmodel(config):
 
+    model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
     model = CNN1D_RUL(config._pyramid_bins, config._pooling_mode)
 
     # If model doesn't exist at location, initialize it

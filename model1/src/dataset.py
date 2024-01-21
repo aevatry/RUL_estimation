@@ -71,3 +71,57 @@ class RUL_Dataset(Dataset):
         start_points = np.random.randint(low=0, high=[max(all_series_len[i] - seq_len, 1) for i in range(len(all_series_len))])
 
         return existence, start_points
+    
+
+
+
+class RUL_Dataset_Singel_Eval(Dataset):
+    """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
+
+    def __init__(self, train_dir, permutations, file_num:int =1, max_starting = 1e4, min_lenght = 3600, transform=None):
+        """
+        Arguments:
+            train_dir (string): path to a directory with csv files with series of features with labels (labels are csv last series) used for testing the model.
+            permutations (integer): number of truncated time series we want to extract for 1 epoch
+            file_num (integer): in range [1; k] with k the number of files in the directory. Default 1
+            max_starting (int): The maximum value for the starting point of the series
+            min_lenght (int): The minimum lenght for all series
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.transform = transform
+        self.permutations = permutations
+        self.file_num = file_num
+        self.min_lenght = min_lenght
+        self.max_starting = max_starting
+
+        # Checking for different types 
+        signs = [' ', ',', ';','    ']
+        series_t = []
+        for file_path in os.listdir(train_dir):
+
+            full_path = '/'.join([train_dir, file_path])
+
+            for sign in signs:
+                try:
+                    series_t += [torch.Tensor(np.loadtxt(full_path, delimiter=sign))]
+                    print(f"Sign : '{sign}' works")
+                except : 
+                    print(f"Sign : '{sign}' does not work")
+
+        self.series_t = series_t[file_num-1]
+
+
+    def __len__(self):
+        return (self.series_t[self.file_num-1].shape[1] - self.min_lenght)
+
+    def __getitem__(self, idx):
+        
+        sequence_lenght = int(self.min_lenght + idx)
+        
+
+        label = self.series_t[-1, sequence_lenght ]
+        # List of all series features
+        features = self.series_t[:-1, 0 : sequence_lenght]
+
+        return features, label
+    
