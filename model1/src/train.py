@@ -10,6 +10,17 @@ from src.RUL_loss_function import RUL_loss
 from src.config import Config
 
 
+def get_device():
+
+    # chooses between nvidia gpu, apple silicon gpu or cpu
+    if torch.cuda.is_available():
+        device = 'cuda'
+    if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        device = 'mps'
+    else:
+        device = 'cpu'
+
+    return device
 
 
 def train_1_epoch(model, training_loader, loss_func, optimizer):
@@ -53,7 +64,7 @@ def train_net(config, device):
     model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
 
     # load the parameters of the model and put it on the gpu if available
-    model = load_pmodel(config)
+    model = load_pmodel(config, device)
     model = model.to(device)
 
     print('Model bins: ',model.pyramid_pool_bins, '\nAnd model mode: ', model._pooling_mode)
@@ -132,7 +143,7 @@ def train_net(config, device):
 
 
 
-def load_pmodel(config):
+def load_pmodel(config, device):
 
     model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
     model = CNN1D_RUL(config._pyramid_bins, config._pooling_mode)
@@ -153,7 +164,7 @@ def load_pmodel(config):
     
     else:
         print(f"Model weights for {model_path} loading \n...")
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=device))
         print(f"Model weights for {model_path} loaded\n")
 
     return model
@@ -185,14 +196,3 @@ def init_weights(layer):
         layer.bias.data.fill_(0.)
 
 
-if __name__ == '__main__':
-    
-    config = Config('Configs/exp_2')
-
-    device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "cpu"
-)
-
-    train_net(config = config, device = device)
