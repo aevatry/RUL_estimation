@@ -15,24 +15,39 @@ from torch.utils.data import Dataset
 import os
 
 
-
-class ADAPT_NORM(Dataset):
+# IMPORTANT: for train functions to work, the main training class (the one that needs to be instanciated during training) need to be called RUL_Dataset. If not, code will break in training loop
+class RUL_Dataset(Dataset):
     """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
 
-    def __init__(self, train_dir:str, permutations:int, min_lenght:int = 3600,label_start:float = None ,transform=None):
+    def __init__(self, train_dir:str, **kwargs)-> torch.Tensor: 
         """
         Arguments:
-            train_dir (string): path to a directory with all csv files with n time series of features with labels (labels are csv last series) .
-            permutations (integer): number of truncated time series we want to extract for 1 epoch
-            min_lenght (int): The minimum lenght for all series
-            label_start (float, optional): From 0 to 1, the proportion of the series that has a label of full RUL. If none, label is line from 1 to 0
-            transform (callable, optional): Optional transform to be applied on a sample.
+            train_dir (string): path to a directory with all csv files with n time series of features with labels (labels are csv last series)
+            kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
+                permutations : int -> number of truncated time series we want to extract for 1 epoch
+                min_lenght int -> The minimum lenght for all series
+                label_start : float -> From 0 to 1, the proportion of the series that has a label of full RUL
         """
-        self.transform = transform
-        self.permutations = permutations
-        self.min_lenght = min_lenght
 
-        if label_start >= 1 or label_start<0:
+        try:
+            self.permutations = kwargs['permutations']
+        except:
+            self.permutations = 200
+            print(f"permutations put to default value of: {self.permutations}")
+
+        try:
+            self.min_lenght = kwargs['min_lenght']
+        except:
+            self.min_lenght = 5000
+            print(f"min)lenght put to default value of: {self.min_lenght}")
+        
+        try:
+            label_start = kwargs['label_start']
+        except:
+            label_start = 0
+            print(f"label_start put to default value of: {label_start}")
+
+        if label_start > 1 or label_start<0:
             label_start=0
             print(f"Label starting point was out of range: {label_start}, so it's been set at 0")
 

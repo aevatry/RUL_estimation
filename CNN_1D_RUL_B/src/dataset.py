@@ -3,22 +3,39 @@ import torch
 import numpy as np
 import os
 
+
+# IMPORTANT: for train functions to work, the main training class (the one that needs to be instanciated during training) need to be called RUL_Dataset. If not, code will break in training loop
 class RUL_Dataset(Dataset):
     """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
 
-    def __init__(self, train_dir, permutations, max_starting = 1e4, min_lenght = 3600, transform=None):
+    def __init__(self, train_dir: str, **kwargs) -> torch.Tensor: 
         """
         Arguments:
             train_dir (string): path to a directory with all csv files with n time series of features with labels (labels are csv last series) .
-            permutations (integer): number of truncated time series we want to extract for 1 epoch
-            max_starting (int): The maximum value for the starting point of the series
-            min_lenght (int): The minimum lenght for all series
-            transform (callable, optional): Optional transform to be applied on a sample.
+            kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
+                permutations : int -> number of truncated time series we want to extract for 1 epoch
+                max_starting : int -> The maximum value for the starting point of the series
+                min_lenght : int ->  The minimum lenght for all series
         """
-        self.transform = transform
-        self.permutations = permutations
-        self.min_lenght = min_lenght
-        self.max_starting = max_starting
+
+        try:
+            self.permutations = kwargs['permutations']
+        except:
+            self.permutations = 200
+            print(f"permutations put to default value of: {self.permutations}")
+        
+        try:
+            self.max_starting = kwargs['max_starting']
+        except:
+            self.max_starting = 1e4
+            print(f"max_starting put to default value of: {self.max_starting}")
+
+        try:
+            self.min_lenght = kwargs['min_lenght']
+        except:
+            self.min_lenght = 5000
+            print(f"min)lenght put to default value of: {self.min_lenght}")
+
 
         # Checking for different types 
         signs = [' ', ',', ';','    ']

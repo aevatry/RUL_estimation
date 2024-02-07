@@ -4,15 +4,17 @@ import json
 
 
 class Config:
-    def __init__(self,config_path:str) -> None:
+    def __init__(self) -> None:
+
 
         """
-        Get the model configuration from the JSON file and asks for 
+        Get the model configuration from the asked JSON file and asks for training and eval directories
         """
-        
-        self.config_path = config_path
+        print("Choose a Configuration JSON file")
+        self.config_path = filedialog.askopenfilename (filetypes=[('JSON File', '*.json')])
+        print(f"JSON configuration file: {self.config_path}\n")
 
-        with open(config_path, 'r') as f:
+        with open(self.config_path, 'r') as f:
             config_dict = json.loads(f.read())
         
         # Get the previous config file parameter field names 
@@ -20,12 +22,15 @@ class Config:
         self.load_attributes(**config_dict)
 
         # Select the correct directories
-        print("Choose TRAIN directory\n")
+        print("Choose TRAIN directory")
         self._train_dir = filedialog.askdirectory(**{'mustexist':True}) 
         assert len(self._train_dir)>0, "You need a training directory, even if empty"
-        print("Choose EVAL directory\n")       
+        print(f"TRAIN directory: {self._train_dir}\n")
+
+        print("Choose EVAL directory")       
         self._eval_dir = filedialog.askdirectory(**{'initialdir': os.path.dirname(self._train_dir),'mustexist':True})
         assert len(self._eval_dir)>0, "You need an eval directory, even if empty"
+        print(f"EVAL directory: {self._eval_dir}\n")
 
 
     def load_attributes(self, **attrs):
