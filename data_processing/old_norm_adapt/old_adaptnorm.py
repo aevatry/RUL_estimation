@@ -1,14 +1,4 @@
-"""
-This code attempts to reproduce:
-Adaptive Normalization: A novel data normalization approach for non-stationary time series
-
-Conference: International Joint Conference on Neural Networks, IJCNN 2010, Barcelona, Spain, 18-23 July, 2010
-Eduardo Ogasawara et Al.
-
-"""
-
 import numpy as np
-import matplotlib.pyplot as plt
 
 def EMA(sequence, ma_win):
     """
@@ -53,17 +43,11 @@ def get_R(sequence, MA, sl_win):
         R_new = S/Si
         R[:,:,i] = R_new
 
+    # Remove outliers removes possible outliers and does the min max norm with min and max the 
     _rmv_outliers(R, sequence)
 
     return R
 
-def lvl_adj_R(MA, R):
-    adj = 0
-    return adj
-
-def levl_adj_DSW(MA, DSW):
-    adj_DSW = 0
-    return adj_DSW
 
 def _rmv_outliers (R, sequence):
     
@@ -74,19 +58,8 @@ def _rmv_outliers (R, sequence):
     low_lim = outliers[:,:,0].reshape((sequence.shape[0], sequence.shape[1], -1)) - 3*IQR
     high_lim = outliers[:,:,1].reshape((sequence.shape[0], sequence.shape[1], -1)) + 3*IQR
 
-    lims = np.concatenate([low_lim, high_lim], axis = 2)
-
-    # set rows/Disjoint Sliding Window to NONE if any value in row outside of quartiles
-    #for i,batch in enumerate(R):
-    #    for j,feature in enumerate(batch):
-    #        for m, DSW in enumerate(feature):
-#
-    #            cond_list = [True for val in DSW if val<lims[i][j][0] or val>lims[i][j][1]]
-#
-    #            if True in cond_list:
-    #                R[i,j,m].fill(None)
-
     _minmax_norm(R, high_lim, low_lim)
+
 
 def _minmax_norm(R, high_lim, low_lim):
 
@@ -102,11 +75,21 @@ def _minmax_norm(R, high_lim, low_lim):
             R[:,:, i, j] = pldr.reshape(R[:,:,i,j].shape)
 
     
+def get_norm_data(seq, sl_win, ma_win):
+    
+    MA = EMA(seq, ma_win)
+    R = get_R(seq, MA, sl_win)
+
+    norm_data =[]
+
+    for i, data in enumerate(R[0][0][:]):
+
+        if i%sl_win == 0:
+            norm_data.append(data)
 
 
-def main():
-    pass
+    norm_data = np.array(norm_data)
 
-if __name__ == '__main__':
+    norm_data = np.concatenate([norm_data[i] for i in range(0, norm_data.shape[0])], axis  =0)
 
-    pass
+    return norm_data

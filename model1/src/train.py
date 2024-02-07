@@ -61,8 +61,6 @@ def train_net(config, device):
     writer_path = ''.join(['runs/',config._name_config])
     writer = SummaryWriter(writer_path)
 
-    model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
-
     # load the parameters of the model and put it on the gpu if available
     model = load_pmodel(config, device)
     model = model.to(device)
