@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 # Ignore parameter folders and others
+**/CNN1D_VNL
 **/runs
 **/Configs
 **/saved_models

@@ -2,13 +2,32 @@ from torch import nn
 import numpy as np
 import torch
 
-class CNN1D_RUL(nn.Module):
+class CNN1D_VNL(nn.Module):
 
-    def __init__(self, pyramid_pool_bins:list = [100, 50, 20, 10], _pooling_mode:str='max'):
+    def __init__(self, **kwargs): #_pyramid_bins:list = [100, 50, 20, 10], _pooling_mode:str='max'):
+        """
+        Arguments:
+            kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
+                _pyramid_bins : list (default = [200]) -> bins to be used for pyramid pooling operation
+                _pooling_mode : str (default = 'max') -> Choose between implemented pooling modes 
+        """
+
         super().__init__()
+        try:
+            self._pyramid_bins = kwargs['_pyramid_bins']
+            print(f"pyramid pooling bins set to custom value: {self._pyramid_bins}")
+        except:
+            self._pyramid_bins = [200]
+            print(f"pyramid pooling bins set to default: {self._pyramid_bins}")
 
-        self.pyramid_pool_bins = pyramid_pool_bins
-        self._pooling_mode = _pooling_mode
+        try:
+            self._pooling_mode = kwargs['_pooling_mode']
+            print(f"pooling mode set to custom value: {self._pooling_mode}")
+        except:
+            self._pooling_mode = 'max'
+            print(f"pooling mode set to default: {self._pooling_mode}")
+
+ 
 
         # Now, need to add layers, see : https://pytorch.org/docs/stable/nn.html
         self.conv1_1D_depthwise = nn.Conv1d(in_channels= 4, out_channels= 4*16, kernel_size= 30, stride= 1, groups= 4) #depthwise
@@ -22,7 +41,7 @@ class CNN1D_RUL(nn.Module):
         self.Linear2 = nn.Linear(in_features=250, out_features=1)
 
         # Instantiation of pooling classes
-        self.pyramid_pool = Spatial_pyramid_pooling(pyramid_pool_bins, _pooling_mode)
+        self.pyramid_pool = Spatial_pyramid_pooling(self._pyramid_bins, self._pooling_mode)
 
         self.LeakyReLu = nn.LeakyReLU()
         self.sigmoid = nn.Sigmoid()
@@ -55,7 +74,7 @@ class CNN1D_RUL(nn.Module):
     
     def get_total_bins(self):
         
-        list_to_array = np.array(self.pyramid_pool_bins)
+        list_to_array = np.array(self._pyramid_bins)
         assert len(np.array(list_to_array).shape) == 1, 'Bins should be 1 dimensional'
         return np.sum(list_to_array, axis = 0)
     
@@ -64,7 +83,7 @@ class CNN1D_RUL(nn.Module):
 class Spatial_pyramid_pooling (nn.Module):
 
     # not need to pass the previous convolution in the __init__ because it is pass in the forward pass
-    def __init__(self, pyramid_output_sizes:list , _mode:str):
+    def __init__(self, pyramid_bins:list , _mode:str):
         super().__init__()
 
         self.name = 'Spatial_pyramid_pooling' #not sure why it is here, present in inspiration repo: https://github.com/addisonklinke/pytorch-architectures/blob/master/torcharch/conv.py
@@ -80,7 +99,7 @@ class Spatial_pyramid_pooling (nn.Module):
         # nn.ModuleList allows PyTorch to find the convolution layers
         self.pools = nn.ModuleList([])
 
-        for size in pyramid_output_sizes:
+        for size in pyramid_bins:
             self.pools.append(pool_func(int(size)))
 
     

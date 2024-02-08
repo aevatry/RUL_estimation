@@ -4,7 +4,6 @@ import numpy as np
 import os
 
 
-# IMPORTANT: for train functions to work, the main training class (the one that needs to be instanciated during training) need to be called RUL_Dataset. If not, code will break in training loop
 class RUL_Dataset(Dataset):
     """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
 
@@ -13,28 +12,31 @@ class RUL_Dataset(Dataset):
         Arguments:
             train_dir (string): path to a directory with all csv files with n time series of features with labels (labels are csv last series) .
             kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
-                permutations : int -> number of truncated time series we want to extract for 1 epoch
-                max_starting : int -> The maximum value for the starting point of the series
-                min_lenght : int ->  The minimum lenght for all series
+                permutations : int (default = 200) -> number of truncated time series we want to extract for 1 epoch
+                max_starting : int (default = 1e4) -> The maximum value for the starting point of the series
+                min_lenght : int (default = 5000) ->  The minimum lenght for all series
         """
 
         try:
             self.permutations = kwargs['permutations']
+            print(f"permutations set to custom value: {self.permutations}")
         except:
             self.permutations = 200
-            print(f"permutations put to default value of: {self.permutations}")
+            print(f"permutations set to default: {self.permutations}")
         
         try:
             self.max_starting = kwargs['max_starting']
+            print(f"max_starting set to custom value: {self.max_starting}")
         except:
             self.max_starting = 1e4
-            print(f"max_starting put to default value of: {self.max_starting}")
+            print(f"max_starting set to default: {self.max_starting}")
 
         try:
             self.min_lenght = kwargs['min_lenght']
+            print(f"min lenght put to custom value of: {self.min_lenght}")
         except:
             self.min_lenght = 5000
-            print(f"min)lenght put to default value of: {self.min_lenght}")
+            print(f"min lenght set to default: {self.min_lenght}")
 
 
         # Checking for different types 

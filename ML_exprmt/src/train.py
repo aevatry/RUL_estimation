@@ -5,14 +5,11 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import importlib
 
-from src.model import CNN1D_RUL
-from src.RUL_loss_function import RUL_loss
-
 
 
 
 def train_net(config, device):
-    writer_path = ''.join(['runs/', config._name_config])
+    writer_path = ''.join([config.model_kwargs["model_class"],'/','runs/', config._name_config])
     writer = SummaryWriter(writer_path)
 
     # load the parameters of the model and put it on the gpu if available
@@ -26,7 +23,7 @@ def train_net(config, device):
     eval_loader = DataLoader(eval_dtst, batch_size=1, shuffle=False)
 
     # Training components needed
-    loss_func = RUL_loss(theta=config._theta)
+    loss_func = get_loss_function(config)
     optimizer = get_optimizer(config, model)
 
 
@@ -67,23 +64,61 @@ def train_net(config, device):
             config.best_eval_loss = avg_eval_loss.item()
             # Update the config file for new best model
             config.epoch_best_model = config.last_epoch
-            new_model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
+            new_model_path = ''.join([config.model_kwargs["model_class"],'/','saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model), '.pt'])
             torch.save(model.state_dict(), new_model_path)
         # Save configuration file
         config.save()
 
 
-## Helper functions
+
+
+def load_pmodel(config, device):
+
+    model_path = ''.join([config.model_kwargs["model_class"],'/','saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model), '.pt'])
+
+    model_class = get_model_class(config)
+    model = model_class(**config.model_kwargs)
+
+    # If model doesn't exist at location, initialize it
+    if not os.path.isfile(model_path):
+
+        dir_path = ''.join(['saved_models/',config._name_config])
+        os.makedirs(dir_path)
+
+        print(f"Model weights for {model._get_name()} starting initialization\n ...")
+        model = init_net(model)
+        print(f"Model weights for {model._get_name()} finished initialization\n")
+
+        print(f"Model weights saving at {model_path} \n ...")
+        torch.save(model.state_dict(), model_path)
+        print(f"Model weights saved at {model_path} \n")
+    
+    else:
+        print(f"Model weights for {model_path} loading \n...")
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        print(f"Model weights for {model_path} loaded\n")
+
+    return model
+
+
+def get_model_class(config):
+
+    model_module = importlib.import_module(config.model_kwargs["model_module"])
+    model_class = getattr(model_module, config.model_kwargs["model_class"])
+    return model_class
 
 
 def get_datasets(config):
 
-    train = importlib.import_module(config.dtst_train_kwargs["dtst_type"])
-    eval = importlib.import_module(config.dtst_eval_kwargs["dtst_type"])
+    train_module = importlib.import_module(config.dtst_train_kwargs["dtst_module"])
+    eval_module = importlib.import_module(config.dtst_eval_kwargs["dtst_module"])
+
+    train_class = getattr(train_module, config.dtst_train_kwargs["dtst_class_name"])
+    eval_class = getattr(eval_module, config.dtst_eval_kwargs["dtst_class_name"])
 
     try:
-        train_dtst = train.RUL_Dataset(train_dir= config._train_dir, **config.dtst_train_kwargs)
-        eval_dtst = eval.RUL_Dataset(train_dir=config._eval_dir, **config.dtst_eval_kwargs)
+        train_dtst = train_class(train_dir= config._train_dir, **config.dtst_train_kwargs)
+        eval_dtst = eval_class(train_dir= config._eval_dir, **config.dtst_eval_kwargs)
     except Exception as e:
         raise e
 
@@ -93,6 +128,7 @@ def get_optimizer(config, model):
 
     if config.optimizer_args['mode'] == 'Adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=config.optimizer_args["_learning_rate"])
+
     elif config.optimizer_args['mode'] == 'SGD':
         optimizer = torch.optim.SGD(model.parameters(), lr=config.optimizer_args["_learning_rate"], momentum=config.optimizer_args["_momentum"])
 
@@ -100,6 +136,13 @@ def get_optimizer(config, model):
         raise NotImplementedError(f"mode {config.optimizer_args['mode']} is not implemented")
 
     return optimizer
+
+def get_loss_function(config):
+    loss_func_module = importlib.import_module(config.loss_func_kwargs["loss_func_module"])
+    loss_func_class = getattr(loss_func_module, config.loss_func_kwargs["loss_func_class"])
+
+    loss_func = loss_func_class(**config.loss_func_kwargs)
+    return loss_func
 
 def get_device():
 
@@ -146,32 +189,6 @@ def train_1_epoch(model, training_loader, loss_func, optimizer):
     return tot_loss / len(training_loader)
 
 
-
-def load_pmodel(config, device):
-
-    model_path = ''.join(['saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model)])
-    model = CNN1D_RUL(config._pyramid_bins, config._pooling_mode)
-
-    # If model doesn't exist at location, initialize it
-    if not os.path.isfile(model_path):
-
-        dir_path = ''.join(['saved_models/',config._name_config])
-        os.makedirs(dir_path)
-
-        print(f"Model weights for {model._get_name()} starting initialization\n ...")
-        model = init_net(model)
-        print(f"Model weights for {model._get_name()} finished initialization\n")
-
-        print(f"Model weights saving at {model_path} \n ...")
-        torch.save(model.state_dict(), model_path)
-        print(f"Model weights saved at {model_path} \n")
-    
-    else:
-        print(f"Model weights for {model_path} loading \n...")
-        model.load_state_dict(torch.load(model_path, map_location=device))
-        print(f"Model weights for {model_path} loaded\n")
-
-    return model
 
 
 def init_net (model):

@@ -15,43 +15,48 @@ from torch.utils.data import Dataset
 import os
 
 
-# IMPORTANT: for train functions to work, the main training class (the one that needs to be instanciated during training) need to be called RUL_Dataset. If not, code will break in training loop
-class RUL_Dataset(Dataset):
+class NORM_ADAPT(Dataset):
     """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
 
     def __init__(self, train_dir:str, **kwargs)-> torch.Tensor: 
+
         """
         Arguments:
             train_dir (string): path to a directory with all csv files with n time series of features with labels (labels are csv last series)
             kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
-                permutations : int -> number of truncated time series we want to extract for 1 epoch
-                min_lenght int -> The minimum lenght for all series
-                label_start : float -> From 0 to 1, the proportion of the series that has a label of full RUL
+                permutations : int (default = 200) -> number of truncated time series we want to extract for 1 epoch
+                min_lenght : int (default = 5000) -> The minimum lenght for all series
+                label_start : float (default = 0.0) -> From 0 to 1, the proportion of the series that has a label of full RUL
         """
+        super().__init__()
 
         try:
             self.permutations = kwargs['permutations']
+            print(f"permutations set to custom value: {self.permutations}")
         except:
             self.permutations = 200
-            print(f"permutations put to default value of: {self.permutations}")
+            print(f"permutations set to default: {self.permutations}")
 
         try:
             self.min_lenght = kwargs['min_lenght']
+            print(f"min lenght set to custom value: {self.min_lenght}")
         except:
             self.min_lenght = 5000
-            print(f"min)lenght put to default value of: {self.min_lenght}")
+            print(f"min lenght set to default: {self.min_lenght}")
         
         try:
             label_start = kwargs['label_start']
+            print(f"label_start set to custom value: {label_start}")
+            if label_start > 1 or label_start<0:
+                label_start=0
+                print(f"Label starting point was out of range: {label_start}, so it's been set at 0")
         except:
             label_start = 0
-            print(f"label_start put to default value of: {label_start}")
+            print(f"label_start set to default: {label_start}")
 
-        if label_start > 1 or label_start<0:
-            label_start=0
-            print(f"Label starting point was out of range: {label_start}, so it's been set at 0")
 
-        # Checking for different types 
+
+        # Checking for different types of text based files
         signs = [' ', ',', ';','    ']
         series_t = []
         labels = []

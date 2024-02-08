@@ -1,0 +1,11 @@
+{
+    "_name_config": "exp_5", 
+    "epoch_best_model": 0, 
+    "last_epoch": 0, 
+    "best_eval_loss": 10e4,
+    "model_kwargs":{"model_module":"src.models.CNN1D_VNL", "model_class":"CNN1D_VNL", "_pyramid_bins": [200], "_pooling_mode": "avg"},
+    "loss_func_kwargs":{"loss_func_module":"src.loss_functions.MIX_RMSE_SCORE", "loss_func_class":"RUL_loss_mixed", "_theta": 0.5 },
+    "dtst_train_kwargs":{"dtst_module":"src.datasets.norm_dataset", "dtst_class_name":"NORM_ADAPT" , "permutations":200, "min_len":5000, "label_start": 0},
+    "dtst_eval_kwargs":{"dtst_module":"src.datasets.norm_dataset", "dtst_class_name":"NORM_ADAPT" , "permutations":40, "min_len":4000, "label_start": 0},
+    "optimizer_args":{"optim_mode": "Adam", "_learning_rate": 0.001}
+}
