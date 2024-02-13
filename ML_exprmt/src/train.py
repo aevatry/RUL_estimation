@@ -8,7 +8,7 @@ import importlib
 
 
 
-def train_net(config, device):
+def train_net(config, device, epochs_wanted):
     writer_path = ''.join([config.model_kwargs["model_class"],'/','runs/', config._name_config])
     writer = SummaryWriter(writer_path)
 
@@ -28,7 +28,7 @@ def train_net(config, device):
 
 
     last_epoch = config.last_epoch
-    for epoch in range(last_epoch, last_epoch + 200):
+    for epoch in range(last_epoch, last_epoch + epochs_wanted):
         print (f"EPOCH: {epoch+1} starting \n ...")
         model.train(True)
         avg_train_loss = train_1_epoch(model,training_loader=training_loader, loss_func=loss_func, optimizer=optimizer)
@@ -82,7 +82,7 @@ def load_pmodel(config, device):
     # If model doesn't exist at location, initialize it
     if not os.path.isfile(model_path):
 
-        dir_path = ''.join(['saved_models/',config._name_config])
+        dir_path = ''.join([config.model_kwargs["model_class"],'/','saved_models/',config._name_config])
         os.makedirs(dir_path)
 
         print(f"Model weights for {model._get_name()} starting initialization\n ...")
@@ -126,10 +126,10 @@ def get_datasets(config):
 
 def get_optimizer(config, model):
 
-    if config.optimizer_args['mode'] == 'Adam':
+    if config.optimizer_args['optim_mode'] == 'Adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=config.optimizer_args["_learning_rate"])
 
-    elif config.optimizer_args['mode'] == 'SGD':
+    elif config.optimizer_args['optim_mode'] == 'SGD':
         optimizer = torch.optim.SGD(model.parameters(), lr=config.optimizer_args["_learning_rate"], momentum=config.optimizer_args["_momentum"])
 
     else:
@@ -149,7 +149,7 @@ def get_device():
     # chooses between nvidia gpu, apple silicon gpu or cpu
     if torch.cuda.is_available():
         device = 'cuda'
-    if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         device = 'mps'
     else:
         device = 'cpu'

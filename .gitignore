@@ -9,6 +9,9 @@ __pycache__/
 **/Configs
 **/saved_models
 
+# Ignore .DSstore files
+*.DS_Store
+
 # .ipynb extensions
 *.ipynb
 

@@ -97,20 +97,18 @@ class RUL_Dataset(Dataset):
 class RUL_Dataset_Singel_Eval(Dataset):
     """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
 
-    def __init__(self, train_dir, step:int = 10, file_num:int =1, max_starting = 1e4, min_lenght = 3600, transform=None):
+    def __init__(self, train_dir, step:int = 10, file_num:int =1, min_lenght = 5000, transform=None):
         """
         Arguments:
             train_dir (string): path to a directory with csv files with series of features with labels (labels are csv last series) used for testing the model.
             step (int): step between two consecutive sequence lenght
             file_num (integer): in range [1; k] with k the number of files in the directory. Default 1
-            max_starting (int): The maximum value for the starting point of the series
             min_lenght (int): The minimum lenght for all series
             transform (callable, optional): Optional transform to be applied on a sample.
         """
         self.step = step
         self.file_num = file_num
         self.min_lenght = min_lenght
-        self.max_starting = max_starting
         self.transform = transform
 
         # Checking for different types 

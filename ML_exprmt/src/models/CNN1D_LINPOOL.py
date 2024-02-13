@@ -1,10 +1,11 @@
 from torch import nn
 import numpy as np
 import torch
+import math
 
-class CNN1D_VNL(nn.Module):
+class CNN1D_LINPOOL(nn.Module):
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs): 
         """
         Arguments:
             kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
@@ -17,7 +18,7 @@ class CNN1D_VNL(nn.Module):
             self._pyramid_bins = kwargs['_pyramid_bins']
             print(f"pyramid pooling bins set to custom value: {self._pyramid_bins}")
         except:
-            self._pyramid_bins = [200]
+            self._pyramid_bins = [300, 100]
             print(f"pyramid pooling bins set to default: {self._pyramid_bins}")
 
         try:
@@ -28,20 +29,19 @@ class CNN1D_VNL(nn.Module):
             print(f"pooling mode set to default: {self._pooling_mode}")
 
  
-
-        # Now, need to add layers, see : https://pytorch.org/docs/stable/nn.html
         self.conv1_1D_depthwise = nn.Conv1d(in_channels= 4, out_channels= 4*16, kernel_size= 30, stride= 1, groups= 4) #depthwise
         self.conv1_1D_pairwise = nn.Conv1d(in_channels= 4*16, out_channels= 32, kernel_size= 1, stride= 1) #pairwise
-        #Pooling layers are inside of the variable maxpool functions
+        
         self.conv2_1D = nn.Conv1d(in_channels = 32, out_channels= 64, kernel_size= 10, stride = 1)
 
+        # Instantiation of pooling with linear block
+        self.spatial_pool_block = Spatial_pyramid_block(pyramid_bins=self._pyramid_bins, entry_channels= 64, _mode=self._pooling_mode)
 
-        # Number of input features: number of channels outputs of previous layer * sum of all bin sizes
-        self.Linear1 = nn.Linear(in_features=64*self.get_total_bins(), out_features=250)
-        self.Linear2 = nn.Linear(in_features=250, out_features=1)
+        # Number of input features: sum of all bin sizes
+        self.Linear1 = nn.Linear(in_features=self.get_total_bins(), out_features=400)
+        self.Linear2 = nn.Linear(in_features=400, out_features=1)
 
-        # Instantiation of pooling classes
-        self.pyramid_pool = Spatial_pyramid_pooling(self._pyramid_bins, self._pooling_mode)
+
 
         self.LeakyReLu = nn.LeakyReLU()
         self.sigmoid = nn.Sigmoid()
@@ -61,14 +61,17 @@ class CNN1D_VNL(nn.Module):
         X = self.conv2_1D(X)
         X = self.LeakyReLu(X)
 
-        # Spatial Pyramidal Pooling
-        X = self.pyramid_pool(X) 
-        X = torch.flatten(X, start_dim=1)
+        # Spatial Pyramidal Pooling Block
+        X = self.spatial_pool_block(X) 
+        X = nn.functional.dropout(X)
+
         # Fully Connected Layers
         X = self.Linear1(X)
+        X = nn.functional.dropout(X)
         X = self.tanh(X)
         
         X = self.Linear2(X)
+        X = nn.functional.dropout(X)
         X = self.sigmoid(X) #This is the estimated RUL
         return X
     
@@ -80,7 +83,7 @@ class CNN1D_VNL(nn.Module):
     
 
 
-class Spatial_pyramid_pooling (nn.Module):
+class Spatial_pyramid_block (nn.Module):
 
     """
     Spatial pyramidal pool class implemented with mps compatibility (with reduced functionality like no dynamic kernel size and stride). 
@@ -88,6 +91,7 @@ class Spatial_pyramid_pooling (nn.Module):
 
     Args:
         pyramid_bins (list): list of all output size for eacg convolution
+        entry_shape (list): shape of entry convolution
         _mode (str): convolution mode. implemented are 'max' for maxpool and 'avg' for average pool
 
     When forward method is called, accepts a tensor X of shape (batch, features, input_lenght)
@@ -95,20 +99,29 @@ class Spatial_pyramid_pooling (nn.Module):
     """
 
     # not need to pass the previous convolution in the __init__ because it is pass in the forward pass
-    def __init__(self, pyramid_bins:list , _mode:str):
+    def __init__(self, pyramid_bins:list, entry_channels:int, _mode:str):
         super().__init__()
 
-        self.name = 'Spatial_pyramid_pooling' 
+        self.name = 'Spatial_pyramid_block' 
 
         self.pyramid_bins = pyramid_bins
         self._mode = _mode
 
-        # How to get a module list in Pytorch
+        
         #nn.ModuleList allows PyTorch to find the convolution layers
-        #self.pools = nn.ModuleList([])
+        self.spatial_conv = nn.ModuleList([])
+        self.miniAE = nn.ModuleList([])
 
-        #for size in pyramid_bins:
-        #    self.pools.append(pool_func(int(size)))
+        for size in pyramid_bins:
+            self.spatial_conv.append(nn.Sequential(
+                nn.Conv1d(in_channels=entry_channels, out_channels=4, kernel_size=3, stride=1, padding=1),
+                nn.ReLU()
+            ))
+            self.miniAE.append(nn.Sequential(
+                nn.Linear(in_features=size, out_features=math.ceil(size/2)),
+                nn.Linear(in_features=math.ceil(size/2), out_features=size)
+            ))
+
 
     
     def forward(self, X):
@@ -117,12 +130,27 @@ class Spatial_pyramid_pooling (nn.Module):
         assert X.dim() == 3, 'Expect a 3D input: (Batch, Channels, Lenght)'
 
 
-        pooled = []
-        for bin_size in self.pyramid_bins:
-            pooled.append(self.get_adaptive_pool(X, bin_size))
+        out =[]
+        for i, bin_size in enumerate(self.pyramid_bins):
+            
+            #pipe each output of the pyramid pooling to the 1D CNN
+            X = self.get_adaptive_pool(X, bin_size)
+            X = self.spatial_conv[i](X)
 
-        return torch.cat(pooled, dim=2)
+            # Global pool resulting convolution
+            X_gblp = self.global_avg_pool(X)
+
+            #now pass data through mini AutoEncoder
+            X_ae = self.miniAE[i](X_gblp)
+            
+            #residual connection
+            Xout = X_gblp + X_ae
+            out+=[Xout]
+            
+
+        return torch.cat(out, dim=1)
     
+
     def get_adaptive_pool (self, previous_conv:torch.Tensor, output_size:int)-> torch.Tensor:
 
         if self._mode == 'max':
@@ -137,6 +165,23 @@ class Spatial_pyramid_pooling (nn.Module):
 
         return pool_func(previous_conv, kernel_size, stride)
     
+    def global_avg_pool(self, previous_conv:torch.Tensor)->torch.Tensor:
+        
+        # add a dimension of 1 in 2nd dimension to be conform to avg_pool_2d input format
+        previous_conv = previous_conv.unsqueeze(1)
+
+        # for each "time step", average all the features. All features are now in the 3rd dimension because of the unsqueeze
+        glb_avg_pool = nn.functional.avg_pool2d(previous_conv, kernel_size=(previous_conv.shape[2], 1), stride=1)
+        
+        # unsqueeze in the 3rd dimension to remove the extra dummy dimension created above
+        glb_avg_pool = glb_avg_pool.squeeze(2)
+        # unsqueeze in 2nd dimension: (batch, 1, bin) -> (batch, bin) for linear layer input
+        glb_avg_pool = glb_avg_pool.squeeze(1)
+
+        return glb_avg_pool
+    
+
+
 
 
 def var_pool_func(previous_conv: torch.Tensor, kernel_size: int=20, stride: int=5, _mode = 'max') -> torch.Tensor:
