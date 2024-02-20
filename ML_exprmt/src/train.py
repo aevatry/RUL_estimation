@@ -29,7 +29,7 @@ def train_net(config, device, epochs_wanted):
 
     last_epoch = config.last_epoch
     for epoch in range(last_epoch, last_epoch + epochs_wanted):
-        print (f"EPOCH: {epoch+1} starting \n ...")
+        print (f"EPOCH: {epoch+1} starting \n ...\n")
         model.train(True)
         avg_train_loss = train_1_epoch(model,training_loader=training_loader, loss_func=loss_func, optimizer=optimizer)
         # Set the model to evaluation mode, disabling dropout 
@@ -44,12 +44,11 @@ def train_net(config, device, epochs_wanted):
                 vlabels = vlabels[0].to(device)
                 # Model estimation
                 voutputs = model(vinputs)
-                print(f"Eval outputs: {voutputs}\n Eval labels: {vlabels}\n")
                 # Loss computations
                 eval_loss = loss_func(voutputs, vlabels)
                 running_eval_loss += eval_loss
         avg_eval_loss = running_eval_loss / len(eval_loader)
-        print(f"LOSS train: {avg_train_loss} vs eval: {avg_eval_loss} for EPOCH: {epoch+1}")
+        print(f"TRAIN loss: {avg_train_loss} | EVAL loss: {avg_eval_loss} for EPOCH: {epoch+1}\n")
         # Log the running loss averaged per batch
         # for both training and validation
         writer.add_scalars('Training vs. Validation Loss',

@@ -5,6 +5,8 @@ __pycache__/
 
 # Ignore parameter folders and others
 **/CNN1D_VNL
+**/CNN1D_LINPOOL
+**/CNN1D_LSTM1
 **/runs
 **/Configs
 **/saved_models

@@ -70,7 +70,7 @@ class NORM_ADAPT(Dataset):
                     labels += [rul_labels(series_t[-1].shape[1], label_start)]
                     print(f"Sign : '{sign}' works")
                 except : 
-                    print(f"Sign : '{sign}' does not work")
+                    pass
 
         self.series_t = series_t
         self.labels = labels

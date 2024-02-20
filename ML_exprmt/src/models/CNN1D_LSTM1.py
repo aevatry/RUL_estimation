@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import math
 
-class CNN1D_LINPOOL(nn.Module):
+class CNN1D_LSTM1(nn.Module):
 
     def __init__(self, **kwargs): 
         """
@@ -42,11 +42,10 @@ class CNN1D_LINPOOL(nn.Module):
         self.conv2_1D = nn.Conv1d(in_channels = 32, out_channels= 64, kernel_size= 10, stride = 1)
 
         # Instantiation of pooling with linear block
-        self.spatial_pool_block = Spatial_pyramid_block(pyramid_bins=self._pyramid_bins, entry_channels= 64, _mode=self._pooling_mode)
+        self.spatial_pool_block = Spatial_LSTM_block(pyramid_bins=self._pyramid_bins, entry_channels= 64, _mode=self._pooling_mode)
 
         # Number of input features: sum of all bin sizes
-        self.Linear1 = nn.Linear(in_features=self.get_total_bins(), out_features=400)
-        self.Linear2 = nn.Linear(in_features=400, out_features=1)
+        self.RUL_Lin = nn.Linear(in_features=len(self._pyramid_bins), out_features=1)
 
 
 
@@ -62,7 +61,7 @@ class CNN1D_LINPOOL(nn.Module):
         X = self.LeakyReLu(X)
 
         # Variational Pooling
-        X = var_pool_func(previous_conv=X,kernel_size=10, stride=2, _mode = self._pooling_mode)
+        X = var_pool_func(previous_conv=X, _mode = self._pooling_mode)
 
         # Second 1D Convolution
         X = self.conv2_1D(X)
@@ -70,14 +69,9 @@ class CNN1D_LINPOOL(nn.Module):
 
         # Spatial Pyramidal Pooling Block
         X = self.spatial_pool_block(X) 
-        #X = nn.functional.dropout(X)
 
         # Fully Connected Layers
-        X = self.Linear1(X)
-        #X = nn.functional.dropout(X)
-        X = self.tanh(X)
-        
-        X = self.Linear2(X)
+        X = self.RUL_Lin(X)
         X = self.sigmoid(X) #This is the estimated RUL
         return X
     
@@ -89,7 +83,7 @@ class CNN1D_LINPOOL(nn.Module):
     
 
 
-class Spatial_pyramid_block (nn.Module):
+class Spatial_LSTM_block (nn.Module):
 
     """
     Spatial pyramidal pool class implemented with mps compatibility (with reduced functionality like no dynamic kernel size and stride). 
@@ -108,25 +102,33 @@ class Spatial_pyramid_block (nn.Module):
     def __init__(self, pyramid_bins:list, entry_channels:int, _mode:str):
         super().__init__()
 
-        self.name = 'Spatial_pyramid_block' 
+        self.name = 'Spatial_LSTM_block' 
 
         self.pyramid_bins = pyramid_bins
         self._mode = _mode
 
+        # Conv layer params
+        self.conv_filters = 4
+
+        # LSTM hidden layers
+        self.hidden_layers = 64
+
         
         #nn.ModuleList allows PyTorch to find the convolution layers
         self.spatial_conv = nn.ModuleList([])
-        self.miniAE = nn.ModuleList([])
+        self.LSTMcell = nn.ModuleList([])
+        self.LSTMlin = nn.ModuleList([])
 
-        for size in pyramid_bins:
+        for _ in pyramid_bins:
+
             self.spatial_conv.append(nn.Sequential(
-                nn.Conv1d(in_channels=entry_channels, out_channels=4, kernel_size=3, stride=1, padding=1),
-                nn.ReLU()
+                nn.Conv1d(in_channels=entry_channels, out_channels=self.conv_filters, kernel_size=3, stride=1, padding=1),
+                nn.LeakyReLU()
             ))
-            self.miniAE.append(nn.Sequential(
-                nn.Linear(in_features=size, out_features=math.ceil(size/2)),
-                nn.Linear(in_features=math.ceil(size/2), out_features=size)
-            ))
+
+            self.LSTMcell.append(nn.LSTMCell(input_size=self.conv_filters, hidden_size= self.hidden_layers))
+
+            self.LSTMlin.append(nn.Linear(in_features=self.hidden_layers, out_features=1))
 
 
     
@@ -138,17 +140,22 @@ class Spatial_pyramid_block (nn.Module):
 
         out =[]
         for i, bin_size in enumerate(self.pyramid_bins):
+
             
             #pipe each output of the pyramid pooling to the 1D CNN
             X_pyr = self.get_adaptive_pool(X, bin_size)
             X_conv = self.spatial_conv[i](X_pyr)
-            # Global pool resulting convolution
-            X_gblp = self.global_avg_pool(X_conv)
-            #now pass data through mini AutoEncoder
-            X_ae = self.miniAE[i](X_gblp)
+
+            # initial hidden and cell states
+            h_t = torch.zeros(X_conv.shape[0], self.hidden_layers)
+            c_t = torch.zeros(X_conv.shape[0], self.hidden_layers)
+
+            for index in range(X_conv.shape[-1]):
+
+                conv_elmt = X_conv[:,:, index]
+                h_t, c_t = self.LSTMcell[i](conv_elmt, (h_t, c_t)) 
             
-            #residual connection
-            Xout = X_gblp + X_ae
+            Xout = self.LSTMlin[i](h_t)
             out+=[Xout]
             
 
@@ -168,19 +175,6 @@ class Spatial_pyramid_block (nn.Module):
         kernel_size = previous_conv.shape[2] - (output_size-1)*stride
 
         return pool_func(previous_conv, kernel_size, stride)
-    
-    def global_avg_pool(self, previous_conv:torch.Tensor)->torch.Tensor:
-        
-        # add a dimension of 1 in 2nd dimension to be conform to avg_pool_2d input format
-        previous_conv = previous_conv.unsqueeze(1)
-
-        # for each "time step", average all the features. All features are now in the 3rd dimension because of the unsqueeze
-        glb_avg_pool = nn.functional.avg_pool2d(previous_conv, kernel_size=(previous_conv.shape[2], 1), stride=1)
-        
-        # unsqueeze in the 2nd and 3rd dimension to remove the extra dummy dimensions and prepare for FC layer
-        glb_avg_pool = glb_avg_pool.squeeze(dim=(1,2))
-
-        return glb_avg_pool
     
 
 
