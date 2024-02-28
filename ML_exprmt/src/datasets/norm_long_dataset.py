@@ -15,7 +15,7 @@ from torch.utils.data import Dataset
 import os
 
 
-class NORM_ADAPT(Dataset):
+class LONG_NORM_ADAPT(Dataset):
     """Face Landmarks dataset. Example from PyTorch: see https://pytorch.org/tutorials/beginner/data_loading_tutorial.html"""
 
     def __init__(self, train_dir:str, **kwargs)-> torch.Tensor: 
@@ -53,7 +53,6 @@ class NORM_ADAPT(Dataset):
         except:
             label_start = 0
             print(f"label_start set to default: {label_start}")
-            print()
 
 
 
@@ -80,15 +79,12 @@ class NORM_ADAPT(Dataset):
         self.all_series_len = all_series_len
 
     def __len__(self):
-        return self.permutations
+        return (max(self.all_series_len)- self.min_lenght)
 
     def __getitem__(self, idx):
         
-        # Draw the random sequence lenght, centered around mid sequence lenght (z=0.5)
-        a = 0.5
-        z = np.random.uniform(size = 1)
-        z = a*z[0]**3 - a*1.5*z[0]**2 + (1+0.5*a)*z[0]
-        sequence_lenght = int(self.min_lenght + z*(max(self.all_series_len) - self.min_lenght))
+
+        sequence_lenght = idx + self.min_lenght
 
         existence = self._selfbatch(self.all_series_len, sequence_lenght)
         
@@ -112,81 +108,7 @@ class NORM_ADAPT(Dataset):
     
 
 
-
-class NORM_ADAPT_EVAL(Dataset):
-    
-    """
-    Arguments:
-        train_dir (string): path to a directory with all csv files with n time series of features with labels (labels are csv last series)
-        step (int): evaluate all indexes that are a multiple of steps
-        file_num (int, default = 1): useful if there are multiple files in the eval directory
-        kwargs (unpacked dict, optional): dict to set the options, where the keys and explanation of options are:
-            permutations : int (default = 200) -> number of truncated time series we want to extract for 1 epoch
-            min_lenght : int (default = 5000) -> The minimum lenght for all series
-            label_start : float (default = 0.0) -> From 0 to 1, the proportion of the series that has a label of full RUL
-    """
-
-    def __init__(self, eval_dir:str, step:int = 10, file_num:int =1, **kwargs)-> torch.Tensor: 
-        super().__init__()
-
-        try:
-            self.min_lenght = kwargs['min_len']
-            print(f"min lenght set to custom value: {self.min_lenght}")
-        except:
-            self.min_lenght = 5000
-            print(f"min lenght set to default: {self.min_lenght}")
-        
-        try:
-            label_start = kwargs['label_start']
-            print(f"label_start set to custom value: {label_start}")
-            if label_start > 1 or label_start<0:
-                label_start=0
-                print(f"Label starting point was out of range: {label_start}, so it's been set at 0")
-        except:
-            label_start = 0
-            print(f"label_start set to default: {label_start}")
-
-
-        self.step = step
-
-        # Checking for different types of text based files
-        signs = [' ', ',', ';','    ']
-        series_t = []
-        labels = []
-        for file_path in os.listdir(eval_dir):
-
-            full_path = '/'.join([eval_dir, file_path])
-
-            for sign in signs:
-                try:
-                    series_t += [np.loadtxt(full_path, delimiter=sign)]
-                    labels += [rul_labels(series_t[-1].shape[1], label_start)]
-                    print(f"Sign : '{sign}' works")
-                except : 
-                    print(f"Sign : '{sign}' does not work")
-
-        self.series_t = series_t[file_num-1]
-        self.label = labels[file_num-1]
-
-    def __len__(self):
-        return int( (self.series_t.shape[1] - self.min_lenght) / self.step)
-
-    def __getitem__(self, idx):
-        
-
-        sequence_lenght = int(self.min_lenght + self.step*idx)
-        
-        label = torch.as_tensor(self.label[sequence_lenght], dtype=torch.float32)
-        # List of all series features
-
-        features = np.array([get_R(self.series_t[:, 0 : sequence_lenght], ma_win=300)])
-        features = torch.as_tensor( features.squeeze(2) , dtype= torch.float32)
-
-        return features, label
-    
-
-
-# Helper functions
+######## Helper functions ########
 
 
 def rul_labels(len_series, ignr_prctg):

@@ -30,8 +30,11 @@ def train_net(config, device, epochs_wanted):
     last_epoch = config.last_epoch
     for epoch in range(last_epoch, last_epoch + epochs_wanted):
         print (f"EPOCH: {epoch+1} starting \n ...\n")
+
+        # Train for the epoch
         model.train(True)
         avg_train_loss = train_1_epoch(model,training_loader=training_loader, loss_func=loss_func, optimizer=optimizer)
+
         # Set the model to evaluation mode, disabling dropout 
         model.eval()
         running_eval_loss = 0.0
@@ -55,6 +58,7 @@ def train_net(config, device, epochs_wanted):
                         { 'Training' : avg_train_loss, 'Validation' : avg_eval_loss },
                         epoch + 1)
         writer.flush()
+
         # Update config JSON with new epoch number
         config.last_epoch += 1
         # Track best performance, and save the model's state
@@ -63,10 +67,17 @@ def train_net(config, device, epochs_wanted):
             config.best_eval_loss = avg_eval_loss.item()
             # Update the config file for new best model
             config.epoch_best_model = config.last_epoch
-            new_model_path = ''.join([config.model_kwargs["model_class"],'/','saved_models/',config._name_config, '/epoch_', str(config.epoch_best_model), '.pt'])
+            new_model_path = ''.join([config.model_kwargs["model_class"],'/','saved_models', '/',config._name_config, '/','epoch_', str(config.epoch_best_model), '.pt'])
             torch.save(model.state_dict(), new_model_path)
+
         # Save configuration file
         config.save()
+
+    #save last model
+    new_model_path = ''.join([config.model_kwargs["model_class"],'/','saved_models', '/',config._name_config, '/','lastmodel.pt'])
+    torch.save(model.state_dict(), new_model_path)
+    return model
+
 
 
 

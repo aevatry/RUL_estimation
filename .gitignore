@@ -7,6 +7,7 @@ __pycache__/
 **/CNN1D_VNL
 **/CNN1D_LINPOOL
 **/CNN1D_LSTM1
+**/CNN1D_LSTM2layers
 **/runs
 **/Configs
 **/saved_models
